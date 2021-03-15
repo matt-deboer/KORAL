@@ -155,7 +155,7 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-#include "KORAL.h"
+#include "koral/KORAL.h"
 
 int main() {
 	// -------- Configuration ----------
@@ -167,7 +167,7 @@ int main() {
 
 
 	// ------------- Image Read -------
-	cv::Mat image = cv::imread(name, CV_LOAD_IMAGE_GRAYSCALE);
+	cv::Mat image = cv::imread(name, cv::ImreadModes::IMREAD_GRAYSCALE);
 	if (!image.data) {
 		std::cerr << "ERROR: failed to open image. Aborting." << std::endl;
 		return EXIT_FAILURE;
@@ -196,7 +196,7 @@ int main() {
 	}
 
 	cv::drawKeypoints(image, converted_kps, image_with_kps, cv::Scalar::all(-1.0), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-	cv::namedWindow("KORAL", CV_WINDOW_NORMAL);
+	cv::namedWindow("KORAL", cv::WINDOW_NORMAL);
 	cv::imshow("KORAL", image_with_kps);
 	cv::waitKey(0);
 	// --------------------------------

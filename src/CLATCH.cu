@@ -1,5 +1,5 @@
 /*******************************************************************
-*   CUDALERP.cu
+*   CLATCH.cu
 *   KORAL
 *
 *	Author: Kareem Omar
@@ -148,36 +148,46 @@
 // Suggestions and improvements are welcomed.
 //
 
-#include "CUDALERP.h"
+#include "koral/CLATCH.h"
 
 __global__ void
 #ifndef __INTELLISENSE__
-__launch_bounds__(256, 0)
+__launch_bounds__(512, 4)
 #endif
-CUDALERP_kernel(const cudaTextureObject_t d_img_tex, const float gxs, const float gys, uint8_t* __restrict const d_out, const size_t pitch, const int neww) {
-	uint32_t x = (blockIdx.x << 9) + (threadIdx.x << 1);
-	const uint32_t y = blockIdx.y;
-	const float fy = (y + 0.5f)*gys - 0.5f;
-	const float wt_y = fy - floor(fy);
-	const float invwt_y = 1.0f - wt_y;
-#pragma unroll
-	for (int i = 0; i < 2; ++i, ++x) {
-		const float fx = (x + 0.5f)*gxs - 0.5f;
-		// less accurate and not really much (or any) faster
-		// -----------------
-		// const float res = tex2D<float>(d_img_tex, fx, fy);
-		// -----------------
-		const float4 f = tex2Dgather<float4>(d_img_tex, fx + 0.5f, fy + 0.5f);
-		const float wt_x = fx - floor(fx);
-		const float invwt_x = 1.0f - wt_x;
-		const float xa = invwt_x*f.w + wt_x*f.z;
-		const float xb = invwt_x*f.x + wt_x*f.y;
-		const float res = 255.0f*(invwt_y*xa + wt_y*xb) + 0.5f;
-		// -----------------
-		if (x < neww) d_out[y*pitch + x] = res;
+CLATCH_kernel(const cudaTextureObject_t d_all_tex[8], const cudaTextureObject_t d_triplets, const Keypoint* const __restrict d_kps, uint32_t* const __restrict__ d_desc) {
+	volatile __shared__ uint8_t s_ROI[4608];
+	const Keypoint pt = d_kps[blockIdx.x];
+	const cudaTextureObject_t d_img_tex = d_all_tex[pt.scale];
+	const float s = sin(pt.angle), c = cos(pt.angle);
+	for (int32_t i = 0; i <= 48; i += 16) {
+		for (int32_t k = 0; k <= 32; k += 32) {
+			const float x_offset = static_cast<float>(static_cast<int>(threadIdx.x) + k - 32);
+			const float y_offset = static_cast<float>(static_cast<int>(threadIdx.y) + i - 32);
+			s_ROI[(threadIdx.y + i) * 72 + threadIdx.x + k] = tex2D<uint8_t>(d_img_tex, static_cast<int>((pt.x + (x_offset*c - y_offset*s)) + 0.5f), static_cast<int>((pt.y + (x_offset*s + y_offset*c)) + 0.5f));
+		}
 	}
+	uint32_t ROI_base = 144 * (threadIdx.x & 3) + (threadIdx.x >> 2), triplet_base = threadIdx.y << 5, desc = 0;
+	__syncthreads();
+	for (int32_t i = 0; i < 4; ++i, triplet_base += 8) {
+		int32_t accum[8];
+		for (uint32_t j = 0; j < 8; ++j) {
+			const ushort4 t = tex1D<ushort4>(d_triplets, triplet_base + j);
+			const int32_t b1 = s_ROI[ROI_base + t.y],      b2 = s_ROI[ROI_base + t.y + 72]     ;
+			const int32_t a1 = s_ROI[ROI_base + t.x] - b1, a2 = s_ROI[ROI_base + t.x + 72] - b2;
+			const int32_t c1 = s_ROI[ROI_base + t.z] - b1, c2 = s_ROI[ROI_base + t.z + 72] - b2;
+			accum[j] = a1 * a1 - c1 * c1 + a2 * a2 - c2 * c2;
+		}
+		for (int32_t k = 1; k <= 4; k <<= 1) {
+			for (int32_t s = 0; s < 8; s += k) accum[s] += __shfl_xor(accum[s], k);
+			if (threadIdx.x & k) for (int32_t s = 0; s < 8; s += k << 1) accum[s] = accum[s + k];
+		}
+		accum[0] += __shfl_xor(accum[0], 8);
+		desc |= (accum[0] + __shfl_xor(accum[0], 16) < 0) << ((i << 3) + (threadIdx.x & 7));
+	}
+	for (int32_t s = 1; s <= 4; s <<= 1) desc |= __shfl_xor(desc, s);
+	if (threadIdx.x == 0) d_desc[(blockIdx.x << 4) + threadIdx.y] = desc;
 }
 
-void CUDALERP(const cudaTextureObject_t d_img_tex, const float gxs, const float gys, uint8_t* __restrict const d_out, const size_t pitch, const uint32_t neww, const uint32_t newh, const cudaStream_t stream) {
-	CUDALERP_kernel<<<{((neww - 1) >> 9) + 1, newh}, 256, 0, stream>>>(d_img_tex, gxs, gys, d_out, pitch, neww);
+void CLATCH(cudaTextureObject_t d_all_tex[8], const cudaTextureObject_t d_triplets, const Keypoint* const __restrict d_kps, const int num_kps, uint64_t* const __restrict d_desc) {
+	CLATCH_kernel<<<num_kps, { 32, 16 } >>>(d_all_tex, d_triplets, d_kps, reinterpret_cast<uint32_t*>(d_desc));
 }
