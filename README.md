@@ -1,6 +1,10 @@
-----------------
 # KORAL
-----------------
+
+
+> This repo is a slight modification of the original KORAL, with the following changes:
+> - namespaced include folders
+> - cmake build
+
 
 ## Summary ##
 KORAL is a novel, extremely fast, highly accurate, scale- and
