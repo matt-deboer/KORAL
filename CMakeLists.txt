@@ -10,5 +10,5 @@ SET(LIB_TYPE STATIC)
 include_directories(include)
 CUDA_ADD_LIBRARY(koral ${LIB_TYPE} src/CUDALERP.cu src/CLATCH.cu src/CUDAK2NN.cu)
 
-
+enable_testing()
 add_subdirectory(test)

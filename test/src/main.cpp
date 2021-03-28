@@ -156,11 +156,14 @@
 #include <vector>
 
 #include "koral/KORAL.h"
+#include "koral/Matcher.h"
+#include "koral/Detector.h"
 
 int main() {
 	// -------- Configuration ----------
 	constexpr uint8_t KFAST_thresh = 60;
-	constexpr char name[] = "test.jpg";
+	constexpr char name[] = "test1.jpg";
+	constexpr char name2[] = "test2.jpg";
 	constexpr float scale_factor = 1.2f;
 	constexpr uint8_t scale_levels = 8;
 	// --------------------------------
@@ -172,17 +175,27 @@ int main() {
 		std::cerr << "ERROR: failed to open image. Aborting." << std::endl;
 		return EXIT_FAILURE;
 	}
+
+	cv::Mat image2 = cv::imread(name2, cv::ImreadModes::IMREAD_GRAYSCALE);
+	if (!image2.data) {
+		std::cerr << "ERROR: failed to open image. Aborting." << std::endl;
+		return EXIT_FAILURE;
+	}
 	// --------------------------------
 
 
 	// ------------- KORAL ------------
 	KORAL koral(scale_factor, scale_levels);
 	koral.go(image.data, image.cols, image.rows, KFAST_thresh);
+
+	KORAL koral2(scale_factor, scale_levels);
+	koral2.go(image2.data, image2.cols, image2.rows, KFAST_thresh);
 	// --------------------------------
 
 
 	// ------------ Output ------------
 	std::cout << "KORAL found " << koral.kps.size() << " keypoints and descriptors." << std::endl;
+	std::cout << "KORAL2 found " << koral2.kps.size() << " keypoints and descriptors." << std::endl;
 
 	cv::Mat image_with_kps;
 	std::vector<cv::KeyPoint> converted_kps;
@@ -195,9 +208,57 @@ int main() {
 		converted_kps.emplace_back(scale*static_cast<float>(kp.x), scale*static_cast<float>(kp.y), 7.0f*scale, 180.0f / 3.1415926535f * kp.angle, static_cast<float>(kp.score));
 	}
 
+	cv::Mat image2_with_kps;
+	std::vector<cv::KeyPoint> converted_kps2;
+	for (const auto& kp : koral2.kps) {
+		// note that KORAL keypoint coordinates are on their native scale level,
+		// so if you want to plot them accurately on scale level 0 (the original
+		// image), you must multiply both the x- and y-coords by scale_factor^kp.scale,
+		// as is done here.
+		const float scale = static_cast<float>(std::pow(scale_factor, kp.scale));
+		converted_kps2.emplace_back(scale*static_cast<float>(kp.x), scale*static_cast<float>(kp.y), 7.0f*scale, 180.0f / 3.1415926535f * kp.angle, static_cast<float>(kp.score));
+	}
+
 	cv::drawKeypoints(image, converted_kps, image_with_kps, cv::Scalar::all(-1.0), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	cv::drawKeypoints(image2, converted_kps2, image2_with_kps, cv::Scalar::all(-1.0), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	cv::namedWindow("KORAL", cv::WINDOW_NORMAL);
+	cv::namedWindow("KORAL2", cv::WINDOW_NORMAL);
 	cv::imshow("KORAL", image_with_kps);
+	cv::imshow("KORAL2", image2_with_kps);
+	cv::waitKey(0);
+
+	const unsigned int maxFeatureCount = 50000;
+	const uint8_t fastThreshold = 40;
+	const uint8_t matchThreshold = 25;
+
+	const unsigned int scaleLevels = 4;
+	const float scaleFactor = 1.2;
+	FeatureDetector detector(scaleFactor, scaleLevels, 900, 1100, maxFeatureCount, fastThreshold);
+	FeatureMatcher matcher(matchThreshold, maxFeatureCount);
+	
+	cv::Rect crop(1470, 1350, 900, 1100);
+	cv::Mat img1, img2;
+	img1 = image(crop).clone();
+	img2 = image2(crop).clone();
+
+	cv::Mat image_with_kps_L, image_with_kps_R;
+	std::vector <cv::KeyPoint> kpsL, kpsR;
+
+	detector.extractFeatures(img1);
+	matcher.setTrainingImage(detector.kps, detector.desc);
+	cv::drawKeypoints(img1, detector.converted_kps, image_with_kps_L, cv::Scalar::all(-1.0), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	kpsL = detector.converted_kps;
+
+	detector.extractFeatures(img2);
+	matcher.setQueryImage(detector.kps, detector.desc);
+	cv::drawKeypoints(img2, detector.converted_kps, image_with_kps_R, cv::Scalar::all(-1.0), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	kpsR = detector.converted_kps;
+	
+	matcher.matchFeatures();
+	cv::Mat image_with_matches;
+	cv::drawMatches(image_with_kps_L, kpsL, image_with_kps_R, kpsR, matcher.dmatches, image_with_matches, cv::Scalar::all(-1.0), cv::Scalar::all(-1.0), std::vector<char>(), cv::DrawMatchesFlags::DEFAULT);
+	cv::namedWindow("Matches", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+	cv::imshow("Matches", image_with_matches);
 	cv::waitKey(0);
 	// --------------------------------
 
