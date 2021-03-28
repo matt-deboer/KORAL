@@ -10,5 +10,11 @@ SET(LIB_TYPE STATIC)
 include_directories(include)
 CUDA_ADD_LIBRARY(koral ${LIB_TYPE} src/CUDALERP.cu src/CLATCH.cu src/CUDAK2NN.cu)
 
+file(GLOB_RECURSE INCLUDES "include/*.h")
+
+install(TARGETS koral DESTINATION lib)
+install(FILES ${INCLUDES} DESTINATION include/koral)
+
+
 enable_testing()
 add_subdirectory(test)
