@@ -3,7 +3,7 @@
 
 > This repo is a slight modification of the original KORAL, with the following changes:
 > - namespaced include folders
-> - adapted Matcher/Detector included from Koral-ros, without the ROS bits
+> - adapted Matcher/Detector included from [Koral-ros](https://github.com/saihv/KORAL-ROS.git), without the ROS bits
 > - cmake build
 
 
