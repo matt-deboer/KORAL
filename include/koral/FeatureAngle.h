@@ -148,6 +148,9 @@
 // Suggestions and improvements are welcomed.
 //
 
+#ifndef KORAL_FEATUREANGLE
+#define KORAL_FEATUREANGLE
+
 #pragma once
 
 #include <cfloat>
@@ -245,3 +248,6 @@ float featureAngle(const uint8_t* const __restrict image, const int px, const in
 
 	return fastAtan2(y_sum, x_sum);
 }
+
+
+#endif /* KORAL_FEATUREANGLE */

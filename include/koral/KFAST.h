@@ -148,6 +148,9 @@
 // Suggestions and improvements are welcomed.
 //
 
+#ifndef KORAL_KFAST
+#define KORAL_KFAST
+
 #pragma once
 
 #include <algorithm>
@@ -539,3 +542,6 @@ void KFAST(const uint8_t* __restrict const data, const int32_t cols, const int32
         }
 }
 
+
+
+#endif /* KORAL_KFAST */

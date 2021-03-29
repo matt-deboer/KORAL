@@ -1,3 +1,5 @@
+#ifndef KORAL_MATCHER
+#define KORAL_MATCHER
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "device_launch_parameters.h"
@@ -10,6 +12,7 @@
 #include "koral/Keypoint.h"
 #include <chrono>
 
+namespace koral {
 #define cudaCalloc(A, B, STREAM) \
     do { \
         cudaError_t __cudaCalloc_err = cudaMalloc(A, B); \
@@ -124,3 +127,7 @@ public:
 		std::cout << "Computed " << matches.size() << " matches in " << sec * 1e3 << " ms" << std::endl;		
 	}
 };
+}
+
+
+#endif /* KORAL_MATCHER */

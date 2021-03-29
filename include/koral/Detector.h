@@ -1,3 +1,5 @@
+#ifndef KORAL_DETECTOR
+#define KORAL_DETECTOR
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/opencv.hpp>
@@ -11,7 +13,7 @@
 #include <chrono>
 
 using namespace std::chrono;
-
+namespace koral {
 class FeatureDetector {
 public:
 	std::vector<Keypoint> kps;
@@ -243,3 +245,7 @@ private:
 	}
 
 };
+}
+
+
+#endif /* KORAL_DETECTOR */

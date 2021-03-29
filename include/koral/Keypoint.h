@@ -148,6 +148,9 @@
 // Suggestions and improvements are welcomed.
 //
 
+#ifndef KORAL_KEYPOINT
+#define KORAL_KEYPOINT
+
 #pragma once
 
 #include <cstdint>
@@ -162,3 +165,6 @@ struct Keypoint {
 	Keypoint() {}
 	Keypoint(const int32_t _x, const int32_t _y, const uint8_t _score) : x(_x), y(_y), score(_score) {}
 };
+
+
+#endif /* KORAL_KEYPOINT */

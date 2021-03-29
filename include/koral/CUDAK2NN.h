@@ -36,6 +36,9 @@
 // with example usage and performance testing.
 //
 
+#ifndef KORAL_CUDAK2NN
+#define KORAL_CUDAK2NN
+
 #pragma once
 
 #include <cstdint>
@@ -52,3 +55,6 @@
 #endif
 
 void CUDAK2NN(const void* const __restrict d_t, const int num_t, const cudaTextureObject_t tex_q, const int num_q, int* const __restrict d_m, const int threshold);
+
+
+#endif /* KORAL_CUDAK2NN */

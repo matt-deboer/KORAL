@@ -148,6 +148,9 @@
 // Suggestions and improvements are welcomed.
 //
 
+#ifndef KORAL_KORAL
+#define KORAL_KORAL
+
 #pragma once
 
 #include "CLATCH.h"
@@ -360,3 +363,6 @@ private:
 
 
 };
+
+
+#endif /* KORAL_KORAL */

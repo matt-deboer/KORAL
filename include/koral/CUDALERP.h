@@ -148,6 +148,9 @@
 // Suggestions and improvements are welcomed.
 //
 
+#ifndef KORAL_CUDALERP
+#define KORAL_CUDALERP
+
 #pragma once
 
 #include "cuda_runtime.h"
@@ -164,3 +167,6 @@
 #endif
 
 void CUDALERP(const cudaTextureObject_t d_img_tex, const float gxs, const float gys, uint8_t* __restrict const d_out, const size_t pitch, const uint32_t neww, const uint32_t newh, const cudaStream_t stream);
+
+
+#endif /* KORAL_CUDALERP */
