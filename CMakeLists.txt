@@ -29,10 +29,11 @@ include(GNUInstallDirs)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/koral)
 
 install(TARGETS koral
-    EXPORT koral-targets
+    EXPORT koral
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+install(EXPORT koral DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # install(TARGETS koral DESTINATION lib)
 # install(DIRECTORY include DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
@@ -48,15 +49,15 @@ install(TARGETS koral
 
 include(CMakePackageConfigHelpers)
 
-configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/koralConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/koralConfig.cmake
-    INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/koral-config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/koral-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/koralConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/koral-config.cmake
     # ${CMAKE_CURRENT_BINARY_DIR}/koralConfigVersion.cmake
-    DESTINATION ${INSTALL_CONFIGDIR}
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 # export(EXPORT koral-targets
