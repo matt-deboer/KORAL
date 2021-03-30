@@ -154,7 +154,7 @@
 #pragma once
 
 #include <cstdint>
-
+namespace koral {
 struct Keypoint {
 	int32_t x;
 	int32_t y;
@@ -166,5 +166,5 @@ struct Keypoint {
 	Keypoint(const int32_t _x, const int32_t _y, const uint8_t _score) : x(_x), y(_y), score(_score) {}
 };
 
-
+}
 #endif /* KORAL_KEYPOINT */

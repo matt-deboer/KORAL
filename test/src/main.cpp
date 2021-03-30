@@ -160,6 +160,8 @@
 #include "koral/Detector.h"
 
 int main() {
+	using namespace koral;
+	
 	// -------- Configuration ----------
 	constexpr uint8_t KFAST_thresh = 60;
 	constexpr char name[] = "test1.jpg";
@@ -185,10 +187,10 @@ int main() {
 
 
 	// ------------- KORAL ------------
-	KORAL koral(scale_factor, scale_levels);
+	koral::KORAL koral(scale_factor, scale_levels);
 	koral.go(image.data, image.cols, image.rows, KFAST_thresh);
 
-	KORAL koral2(scale_factor, scale_levels);
+	koral::KORAL koral2(scale_factor, scale_levels);
 	koral2.go(image2.data, image2.cols, image2.rows, KFAST_thresh);
 	// --------------------------------
 
@@ -233,8 +235,8 @@ int main() {
 
 	const unsigned int scaleLevels = 4;
 	const float scaleFactor = 1.2;
-	FeatureDetector detector(scaleFactor, scaleLevels, 900, 1100, maxFeatureCount, fastThreshold);
-	FeatureMatcher matcher(matchThreshold, maxFeatureCount);
+	koral::FeatureDetector detector(scaleFactor, scaleLevels, 900, 1100, maxFeatureCount, fastThreshold);
+	koral::FeatureMatcher matcher(matchThreshold, maxFeatureCount);
 	
 	cv::Rect crop(1470, 1350, 900, 1100);
 	cv::Mat img1, img2;

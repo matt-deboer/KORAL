@@ -1,5 +1,5 @@
 /*******************************************************************
-*   CLATCH.cu
+*   FeatureAngle.h
 *   KORAL
 *
 *	Author: Kareem Omar
@@ -148,49 +148,101 @@
 // Suggestions and improvements are welcomed.
 //
 
-#include "koral/CLATCH.h"
+#include "koral/FeatureAngle.h"
 
 
-__global__ void
-#ifndef __INTELLISENSE__
-__launch_bounds__(512, 4)
-#endif
+#include <cfloat>
+#include <cmath>
+#include <cstdint>
+#include <immintrin.h>
 
-CLATCH_kernel(const cudaTextureObject_t d_all_tex[8], const cudaTextureObject_t d_triplets, const koral::Keypoint* const __restrict d_kps, uint32_t* const __restrict__ d_desc) {
-	volatile __shared__ uint8_t s_ROI[4608];
-	const koral::Keypoint pt = d_kps[blockIdx.x];
-	const cudaTextureObject_t d_img_tex = d_all_tex[pt.scale];
-	const float s = sin(pt.angle), c = cos(pt.angle);
-	for (int32_t i = 0; i <= 48; i += 16) {
-		for (int32_t k = 0; k <= 32; k += 32) {
-			const float x_offset = static_cast<float>(static_cast<int>(threadIdx.x) + k - 32);
-			const float y_offset = static_cast<float>(static_cast<int>(threadIdx.y) + i - 32);
-			s_ROI[(threadIdx.y + i) * 72 + threadIdx.x + k] = tex2D<uint8_t>(d_img_tex, static_cast<int>((pt.x + (x_offset*c - y_offset*s)) + 0.5f), static_cast<int>((pt.y + (x_offset*s + y_offset*c)) + 0.5f));
-		}
+constexpr float PI = 3.1415927f;
+
+float fastAtan2(float y, float x) {
+	const float ax = fabs(x);
+	const float ay = fabs(y);
+	float a;
+	if (ax >= ay) {
+		const float c = ay / (ax + FLT_MIN);
+		const float cc = c*c;
+		a = (((-0.0443265555479f*cc + 0.1555786518f)*cc - 0.325808397f)*cc + 0.9997878412f)*c;
 	}
-	uint32_t ROI_base = 144 * (threadIdx.x & 3) + (threadIdx.x >> 2), triplet_base = threadIdx.y << 5, desc = 0;
-	__syncthreads();
-	for (int32_t i = 0; i < 4; ++i, triplet_base += 8) {
-		int32_t accum[8];
-		for (uint32_t j = 0; j < 8; ++j) {
-			const ushort4 t = tex1D<ushort4>(d_triplets, triplet_base + j);
-			const int32_t b1 = s_ROI[ROI_base + t.y],      b2 = s_ROI[ROI_base + t.y + 72]     ;
-			const int32_t a1 = s_ROI[ROI_base + t.x] - b1, a2 = s_ROI[ROI_base + t.x + 72] - b2;
-			const int32_t c1 = s_ROI[ROI_base + t.z] - b1, c2 = s_ROI[ROI_base + t.z + 72] - b2;
-			accum[j] = a1 * a1 - c1 * c1 + a2 * a2 - c2 * c2;
-		}
-		for (int32_t k = 1; k <= 4; k <<= 1) {
-			for (int32_t s = 0; s < 8; s += k) accum[s] += __shfl_xor(accum[s], k);
-			if (threadIdx.x & k) for (int32_t s = 0; s < 8; s += k << 1) accum[s] = accum[s + k];
-		}
-		accum[0] += __shfl_xor(accum[0], 8);
-		desc |= (accum[0] + __shfl_xor(accum[0], 16) < 0) << ((i << 3) + (threadIdx.x & 7));
+	else {
+		const float c = ax / (ay + FLT_MIN);
+		const float cc = c*c;
+		a = PI * 0.5f - (((-0.0443265555479f*cc + 0.1555786518f)*cc - 0.325808397f)*cc + 0.9997878412f)*c;
 	}
-	for (int32_t s = 1; s <= 4; s <<= 1) desc |= __shfl_xor(desc, s);
-	if (threadIdx.x == 0) d_desc[(blockIdx.x << 4) + threadIdx.y] = desc;
+	if (x < 0.0f) a = PI - a;
+	if (y < 0.0f) a = -a;
+	return a;
 }
 
+//     0 1 2 3 4 5 6
+//   +--------------
+// 0 | - - x x x - -
+// 1 | - x x x x x -
+// 2 | x x x x x x x
+// 3 | x x x o x x x
+// 4 | x x x x x x x
+// 5 | - x x x x x -
+// 6 | - - x x x - -
 
-void CLATCH(cudaTextureObject_t d_all_tex[8], const cudaTextureObject_t d_triplets, const koral::Keypoint* const __restrict d_kps, const int num_kps, uint64_t* const __restrict d_desc) {
-	CLATCH_kernel<<<num_kps, { 32, 16 } >>>(d_all_tex, d_triplets, d_kps, reinterpret_cast<uint32_t*>(d_desc));
+static const __m128i xwt0 = _mm_setr_epi16(0, 0, -1, 0, 1, 0, 0, 0);
+static const __m128i xwt1 = _mm_setr_epi16(0, -2, -1, 0, 1, 2, 0, 0);
+static const __m128i xwt2 = _mm_setr_epi16(-3, -2, -1, 0, 1, 2, 3, 0);
+
+static const __m128i ywt0 = _mm_setr_epi16(0, 0, 3, 3, 3, 0, 0, 0);
+static const __m128i ywt1 = _mm_setr_epi16(0, 2, 2, 2, 2, 2, 0, 0);
+static const __m128i ywt2 = _mm_setr_epi16(1, 1, 1, 1, 1, 1, 1, 0);
+
+float featureAngle(const uint8_t* const __restrict image, const int px, const int py, const int step) {
+	const uint8_t* __restrict p = image + (py - 3)*step + (px - 3);
+	__m128i x = _mm_setzero_si128();
+	__m128i y = _mm_setzero_si128();
+
+	__m128i r;
+	r = _mm_cvtepu8_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(p)));
+	x = _mm_add_epi16(x, _mm_mullo_epi16(r, xwt0));
+	y = _mm_sub_epi16(y, _mm_mullo_epi16(r, ywt0));
+	p += step;
+
+	r = _mm_cvtepu8_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(p)));
+	x = _mm_add_epi16(x, _mm_mullo_epi16(r, xwt1));
+	y = _mm_sub_epi16(y, _mm_mullo_epi16(r, ywt1));
+	p += step;
+
+	r = _mm_cvtepu8_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(p)));
+	x = _mm_add_epi16(x, _mm_mullo_epi16(r, xwt2));
+	y = _mm_sub_epi16(y, _mm_mullo_epi16(r, ywt2));
+	p += step;
+
+	r = _mm_cvtepu8_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(p)));
+	x = _mm_add_epi16(x, _mm_mullo_epi16(r, xwt2));
+	p += step;
+
+	r = _mm_cvtepu8_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(p)));
+	x = _mm_add_epi16(x, _mm_mullo_epi16(r, xwt2));
+	y = _mm_add_epi16(y, _mm_mullo_epi16(r, ywt2));
+	p += step;
+
+	r = _mm_cvtepu8_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(p)));
+	x = _mm_add_epi16(x, _mm_mullo_epi16(r, xwt1));
+	y = _mm_add_epi16(y, _mm_mullo_epi16(r, ywt1));
+	p += step;
+
+	r = _mm_cvtepu8_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(p)));
+	x = _mm_add_epi16(x, _mm_mullo_epi16(r, xwt0));
+	y = _mm_add_epi16(y, _mm_mullo_epi16(r, ywt0));
+
+	x = _mm_add_epi16(x, _mm_shuffle_epi32(x, 78));
+	x = _mm_hadd_epi16(x, x);
+	x = _mm_add_epi16(x, _mm_shufflelo_epi16(x, 225));
+	const float x_sum = static_cast<float>(static_cast<int16_t>(_mm_cvtsi128_si32(x)));
+
+	y = _mm_add_epi16(y, _mm_shuffle_epi32(y, 78));
+	y = _mm_hadd_epi16(y, y);
+	y = _mm_add_epi16(y, _mm_shufflelo_epi16(y, 225));
+	const float y_sum = static_cast<float>(static_cast<int16_t>(_mm_cvtsi128_si32(y)));
+
+	return fastAtan2(y_sum, x_sum);
 }

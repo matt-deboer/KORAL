@@ -163,6 +163,7 @@
 #include <cuda_runtime.h>
 #include <vector>
 
+namespace koral {
 class KORAL {
 	// public member variables
 public:
@@ -363,6 +364,6 @@ private:
 
 
 };
-
+}
 
 #endif /* KORAL_KORAL */

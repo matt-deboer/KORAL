@@ -150,6 +150,7 @@
 
 #include "koral/CUDALERP.h"
 
+
 __global__ void
 #ifndef __INTELLISENSE__
 __launch_bounds__(256, 0)
