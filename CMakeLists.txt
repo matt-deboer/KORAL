@@ -5,13 +5,16 @@ find_package(CUDA REQUIRED)
 
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -std=c++11 -march=native -ftracer -ftree-vectorize -mavx2 -mfma -fomit-frame-pointer")
-set(CUDA_NVCC_FLAGS "-arch=sm_61 --use_fast_math -O3" CACHE STRING "nvcc flags" FORCE)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(COMPILE_OPTIONS "-Ofast -std=c++11 -march=native -ftracer -ftree-vectorize -msse4.1 -msse3 -mavx2 -mfma -fomit-frame-pointer")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMPILE_OPTIONS}")
+set(CUDA_NVCC_FLAGS "-arch=sm_61 --use_fast_math -O3 -allow-unsupported-compiler" CACHE STRING "nvcc flags" FORCE)
 set(CUDA_VERBOSE_BUILD ON CACHE BOOL "nvcc verbose" FORCE)
 set(LIB_TYPE STATIC) 
-# include_directories(include)
 
-cuda_add_library(koral ${LIB_TYPE} src/CUDALERP.cu src/CLATCH.cu src/CUDAK2NN.cu)
+cuda_add_library(koral ${LIB_TYPE} src/CUDALERP.cu src/CLATCH.cu src/CUDAK2NN.cu src/FeatureAngle.cpp src/KFAST.cpp)
+
 #Set target properties
 target_include_directories(koral
     PUBLIC
@@ -20,10 +23,11 @@ target_include_directories(koral
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-# target_compile_features(koral PRIVATE cxx_11)
-target_compile_options(koral PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
-    -Ofast -std=c++11 -march=native -ftracer -ftree-vectorize -mavx2 -mfma -fomit-frame-pointer>)
+
+# target_compile_options(koral 
+#     PRIVATE
+#     ${COMPILE_OPTIONS})
+
 
 include(GNUInstallDirs)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/koral/cmake)
