@@ -141,18 +141,18 @@ public:
 		cudaFreeArray(d_trip_arr);
 	}
 
-	// Process an image that is read from disk. converted_kps contains keypoints stored in OpenCV format.
-	void imageReadProcess(cv::Mat image)
-	{
-		high_resolution_clock::time_point t1 = high_resolution_clock::now();
-		detectAndDescribe(image.data, image.cols, image.rows, thresh);
-		high_resolution_clock::time_point t2 = high_resolution_clock::now();
-		converted_kps.clear();
-		for (const auto& kp : kps) {
-			const float scale = static_cast<float>(std::pow(1.2f, kp.scale));
-			converted_kps.emplace_back(scale*static_cast<float>(kp.x), scale*static_cast<float>(kp.y), 7.0f*scale, 180.0f / 3.1415926535f * kp.angle, static_cast<float>(kp.score));
-		}
-	}
+	// // Process an image that is read from disk. converted_kps contains keypoints stored in OpenCV format.
+	// void imageReadProcess(cv::Mat image)
+	// {
+	// 	high_resolution_clock::time_point t1 = high_resolution_clock::now();
+	// 	detectAndDescribe(image.data, image.cols, image.rows, thresh);
+	// 	high_resolution_clock::time_point t2 = high_resolution_clock::now();
+	// 	converted_kps.clear();
+	// 	for (const auto& kp : kps) {
+	// 		const float scale = static_cast<float>(std::pow(scale_factor, kp.scale));
+	// 		converted_kps.emplace_back(scale*static_cast<float>(kp.x), scale*static_cast<float>(kp.y), 7.0f*scale, 180.0f / 3.1415926535f * kp.angle, static_cast<float>(kp.score));
+	// 	}
+	// }
 
 	// Process an image that is obtained from a ROS topic. converted_kps contains keypoints stored in OpenCV format.
 	void extractFeatures(cv::Mat image) {
@@ -161,8 +161,12 @@ public:
 		high_resolution_clock::time_point t2 = high_resolution_clock::now();
 		converted_kps.clear();
 		for (const auto& kp : kps) {
-			const float scale = static_cast<float>(std::pow(1.2f, kp.scale));
-			converted_kps.emplace_back(scale*static_cast<float>(kp.x), scale*static_cast<float>(kp.y), 7.0f*scale, 180.0f / 3.1415926535f * kp.angle, static_cast<float>(kp.score));
+			const float scale = static_cast<float>(
+				std::pow(scale_factor, kp.scale));
+			converted_kps.emplace_back(scale*static_cast<float>(kp.x),
+				scale*static_cast<float>(kp.y), 7.0f*scale,
+				180.0f / 3.1415926535f * kp.angle,
+				static_cast<float>(kp.score));
 		}
 	}
 
@@ -203,9 +207,11 @@ private:
 		float f = 1.0f;
 		for (int i = 1; i < scale_levels; ++i) {
 			f *= scale_factor;			
-			cudaMemset2DAsync(levels[i].d_img, levels[i].pitch, 0, levels[i].w, levels[i].h, stream[i - 1]);
+			cudaMemset2DAsync(levels[i].d_img, levels[i].pitch, 0,
+				levels[i].w, levels[i].h, stream[i - 1]);
 			// GPU: non-blocking launch of resize kernels
-			CUDALERP(d_img_tex_nf, f, f, levels[i].d_img, levels[i].pitch, levels[i].w, levels[i].h, stream[i - 1]);
+			CUDALERP(d_img_tex_nf, f, f, levels[i].d_img, levels[i].pitch,
+				levels[i].w, levels[i].h, stream[i - 1]);
 		}
 
 		// Initialize KFAST on the CPU
@@ -216,27 +222,35 @@ private:
 		for (uint8_t i = 0; i < scale_levels; ++i) {
 			std::vector<Keypoint> local_kps;
 			if (i) {
-				cudaMemcpy2DAsync(const_cast<uint8_t*>(levels[i].h_img), levels[i].w, levels[i].d_img, levels[i].pitch, levels[i].w, levels[i].h, cudaMemcpyDeviceToHost, stream[i - 1]);
+				cudaMemcpy2DAsync(const_cast<uint8_t*>(levels[i].h_img),
+					levels[i].w, levels[i].d_img, levels[i].pitch,
+					levels[i].w, levels[i].h, cudaMemcpyDeviceToHost,
+					stream[i - 1]);
 				cudaStreamSynchronize(stream[i - 1]);
 			}
-			KFAST<true, true>(levels[i].h_img, levels[i].w, levels[i].h, levels[i].w, local_kps, KFAST_thresh);
+			KFAST<true, true>(
+				levels[i].h_img, levels[i].w, 
+				levels[i].h, levels[i].w, local_kps, KFAST_thresh);
 
 			// set scale and compute angles
 			for (auto& kp : local_kps) {
 				kp.scale = i;
-				kp.angle = featureAngle(levels[i].h_img, kp.x, kp.y, static_cast<int>(levels[i].w));
+				kp.angle = featureAngle(levels[i].h_img, kp.x, kp.y,
+					static_cast<int>(levels[i].w));
 			}
 			//std::cout << "Got " << local_kps.size() << " keypoints from level " << +i << '.' << std::endl;
 			kps.insert(kps.end(), local_kps.begin(), local_kps.end());
 		}
 
 		// Compute LATCH descriptors for all the keypoints
-		cudaMemcpy(d_all_tex, all_tex, scale_levels * sizeof(cudaTextureObject_t), cudaMemcpyHostToDevice);
-		cudaMemcpy(d_kps, kps.data(), kps.size() * sizeof(Keypoint), cudaMemcpyHostToDevice);
-		CLATCH(d_all_tex, d_trip_tex, d_kps, static_cast<int>(kps.size()), d_desc);
+		cudaMemcpy(d_all_tex, all_tex, 
+			scale_levels * sizeof(cudaTextureObject_t), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_kps, kps.data(), 
+			kps.size() * sizeof(Keypoint), cudaMemcpyHostToDevice);
+		CLATCH(d_all_tex, d_trip_tex, d_kps,
+			static_cast<int>(kps.size()), d_desc);
 
 		// Transfer descriptors to host
-
 		desc.clear();
 		desc.resize(8 * kps.size());
 		cudaMemcpy(&desc[0], d_desc, 64 * kps.size(), cudaMemcpyDeviceToHost);
