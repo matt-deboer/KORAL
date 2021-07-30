@@ -71,6 +71,7 @@ public:
 
 	~FeatureMatcher()
 	{
+		freeGPUMemory();
 	}
 
 	void freeGPUMemory()
@@ -123,8 +124,8 @@ public:
 			}
 		}
 		
-		auto sec = static_cast<double>(duration_cast<nanoseconds>(end - start).count()) * 1e-9 / static_cast<double>(1);
-		std::cout << "Computed " << matches.size() << " matches in " << sec * 1e3 << " ms" << std::endl;		
+		// auto sec = static_cast<double>(duration_cast<nanoseconds>(end - start).count()) * 1e-9 / static_cast<double>(1);
+		// std::cout << "Computed " << matches.size() << " matches in " << sec * 1e3 << " ms" << std::endl;		
 	}
 };
 }
