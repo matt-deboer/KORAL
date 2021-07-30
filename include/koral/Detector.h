@@ -256,7 +256,7 @@ private:
 		desc.resize(8 * kps.size());
 		cudaMemcpy(&desc[0], d_desc, 64 * kps.size(), cudaMemcpyDeviceToHost);
 		
-		//cudaDeviceSynchronize();
+		cudaDeviceSynchronize();
 	}
 
 };
